@@ -23,7 +23,22 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+    "datasets",
+    "torch~=2.3.1",
+    "transformers~=4.45.2",
+    "evaluate",
+    "numpy",
+    "pandas",
+    "orjson",
+    "matplotlib",
+    "seaborn",
+    "rich",
+    "tqdm",
+    "scikit-learn",
+    "torchvision",
+    "optuna",
+]
 
 [project.urls]
 Documentation = "https://github.com/Yasas Senarath/emogen#readme"
@@ -50,3 +65,43 @@ tests = ["tests", "*/emogen/tests"]
 
 [tool.coverage.report]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+    "PT",  # pytest style
+    "PL",  # pylint
+    "TRY", # tryceratops
+]
+ignore = [
+    "E501", # line too long - let black handle this
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["emogen"]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "torch.nn.Parameter",
+    "Parameter",
+    "torch.tensor",
+    "torch.Tensor",
+]
+
+[tool.hatch.envs.default]
+dependencies = ["pytest", "pytest-cov", "ruff>=0.2.1"]
