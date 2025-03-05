@@ -1,3 +1,9 @@
+"""
+This script fine-tunes a RoBERTa model for multi-label classification on the GoEmotions dataset.
+It includes data preprocessing, model initialization, training, and evaluation.
+The model's encoder layers are progressively unfrozen during training to improve performance.
+"""
+
 import os
 import shutil
 
@@ -18,6 +24,9 @@ from transformers import (
     EarlyStoppingCallback,
     Trainer,
     TrainingArguments,
+)
+from transformers.models.roberta.modeling_roberta import (
+    RobertaForSequenceClassification,
 )
 from utils import config
 
@@ -134,7 +143,7 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=128,
     # per_device_train_batch_size=32,
     # gradient_accumulation_steps=2, # Effective batch size = 32 * 2 = 64
-    num_train_epochs=25,
+    num_train_epochs=3,
     learning_rate=2e-5,
     weight_decay=0.01,
     warmup_ratio=0.1,
@@ -154,7 +163,7 @@ training_args = TrainingArguments(
 )
 
 
-def model_init():
+def model_init(freeze_encoder: bool = True):
     model = AutoModelForSequenceClassification.from_pretrained(
         base_model_name,
         num_labels=num_labels,
@@ -162,10 +171,38 @@ def model_init():
         id2label=id2label,
         label2id=label2id,
     )
+
+    # model = BetterTransformer.transform(model)
+
     # Enable gradient checkpointing
     # model.gradient_checkpointing_enable()
 
-    # model = BetterTransformer.transform(model)
+    if freeze_encoder:
+        if isinstance(model, RobertaForSequenceClassification):
+            for param in model.roberta.parameters():
+                param.requires_grad = False
+        else:
+            msg = f"model type {model.__class__.__name__} is not supported"
+            raise TypeError(msg)
+
+    return model
+
+
+def unfreeze_encoder(model, top_layers: int = 1):
+    if isinstance(model, RobertaForSequenceClassification):
+        if len(model.roberta.encoder.layer) < top_layers + 1:
+            msg = f"model has only {len(model.roberta.encoder.layer)} layers"
+            raise ValueError(msg)
+        for layer in model.roberta.encoder.layer[-top_layers:]:
+            for param in layer.parameters():
+                param.requires_grad = True
+        freeze_embeddings = len(model.roberta.encoder.layer) == top_layers
+        if freeze_embeddings:
+            for param in model.roberta.embeddings.parameters():
+                param.requires_grad = True
+    else:
+        msg = f"model type {model.__class__.__name__} is not supported"
+        raise TypeError(msg)
     return model
 
 
@@ -188,6 +225,19 @@ trainer = Trainer(
 
 
 trainer.train()
+
+top_layers = 1
+while True:
+    try:
+        unfreeze_encoder(trainer.model, top_layers=top_layers)
+    except ValueError:
+        break
+
+    trainer.train()
+
+    top_layers += 1
+
+    trainer.train()
 
 trainer.push_to_hub()
 
